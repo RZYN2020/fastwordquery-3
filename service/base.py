@@ -665,6 +665,7 @@ class MdxService(LocalService):
         media_files_set.update(set(mjs))
         msrc = re.findall(r'<img.*?src="([\w\./]\S+?)".*?>', html)
         media_files_set.update(set(msrc))
+        # todo: handle more sounds formats
         msound = re.findall(r'href="sound:(.*?\.(?:mp3|wav))"', html)
         if config.export_media:
             media_files_set.update(set(msound))
@@ -676,21 +677,33 @@ class MdxService(LocalService):
         html = p.sub(u"[\\1]\\2", html)
         self.save_media_files(media_files_set)
         for f in mcss:
-            cssfile = u'_{}'.format(os.path.basename(f.replace('\\', os.path.sep)))
+            basename = os.path.basename(f.replace('\\', os.path.sep))
+            media_folder = os.path.join(mw.pm.profileFolder(), "collection.media")
+            cssfile = '_' + basename
+            csspath = media_folder + os.path.sep + cssfile
             # if not exists the css file, the user can place the file to media
             # folder first, and it will also execute the wrap process to generate
             # the desired file.
-            if not os.path.exists(cssfile):
-                css_src = self.dict_path.replace(self._filename + u'.mdx', f)
-                if os.path.exists(css_src):
-                    shutil.copy(css_src, cssfile)
-                else:    
-                    self.missed_css.add(cssfile[1:])
-            new_css_file, wrap_class_name = wrap_css(cssfile)
+            new_css_path, wrap_class_name = wrap_css(csspath)
+            if not os.path.exists(new_css_path):
+                if not os.path.exists(csspath): 
+                    print("file not exists: " + csspath)
+                    ...
+                    # self.missed_css.add(cssfile[1:])
+                else:
+                    print("copy file: " + csspath + " to: " + new_css_path + "...")
+                    os.rename(csspath, new_css_path)
+            elif os.path.exists(csspath):
+                print("remove file: " + csspath + "...")
+                os.remove(csspath)
+            else:
+                print("file exists: " + new_css_path)
+                ...
+            new_css_file = os.path.basename(new_css_path)
             html = html.replace(cssfile, new_css_file)
             # add global div to the result html
             html = u'<div class="{0}">{1}</div>'.format(
-                wrap_class_name, html)
+                            wrap_class_name, html)
 
         return html
 
@@ -698,9 +711,10 @@ class MdxService(LocalService):
         '''
         default save file interface
         '''
+        media_folder = os.path.join(mw.pm.profileFolder(), "collection.media")
         basename = os.path.basename(filepath_in_mdx.replace('\\', os.path.sep))
         if savepath is None:
-            savepath = '_' + basename
+            savepath = media_folder + os.path.sep + '_' + basename
         if os.path.exists(savepath):
             return savepath
         try:
@@ -728,7 +742,7 @@ class MdxService(LocalService):
         self.media_cache['files'].update(diff)
         lst, errors = list(), list()
         wild = [
-            '*' + os.path.basename(each.replace('\\', os.path.sep)) for each in diff]
+            '\\' + os.path.basename(each.replace('\\', os.path.sep)) for each in diff]
         try:
             for each in wild:
                 keys = self.builder.get_mdd_keys(each)
